@@ -1,0 +1,37 @@
+
+function train_model
+
+[augmented_training_set,augmented_test_set,imds] = learning_data(categories)
+
+
+net = resnet50()
+[training_set,test_set] = splitEachLabel(imds,0.2,'randomize');
+image_size = net.Layers(1).InputSize;
+augmented_training_set = augmentedImageDatastore(image_size,training_set,'ColorPreprocessing','gray2rgb');
+augmented_test_set = augmentedImageDatastore(image_size,test_set,'ColorPreprocessing','gray2rgb');
+feature_layer = 'fc1000';
+
+training_options = activations(net,augmented_training_set,feature_layer,'MiniBatchSize',32,'OutputAs','columns');
+
+training_labels = training_set.Labels;
+
+classifier = fitcecoc(training_options,training_labels,'Learner','Linear','Coding','onevsall','ObservationsIn','columns');
+
+test_options = activations(net,augmented_test_set,feature_layer,'MiniBatchSize',32,'OutputAs','columns');
+
+predict_labels = predict(classifier,test_options,'ObservationsIn','columns');
+
+test_labels=test_set.Labels;
+conf_mat = confusionmat(test_labels,predict_labels);
+conf_mat = bsxfun(@rdivide, conf_mat,sum(conf_mat,2));
+
+mean(diag(conf_mat))
+
+img = imread('octopus.jpg');
+augmented_img = augmentedImageDatastore(image_size,img,'ColorPreprocessing','gray2rgb');
+
+img_options = activations(net,augmented_img,feature_layer,'MiniBatchSize',32,'OutputAs','columns');
+
+
+label = predict(classifier,img_options,'ObservationsIn','columns');
+disp(label)
